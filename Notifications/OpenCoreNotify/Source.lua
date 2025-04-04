@@ -847,6 +847,13 @@ function NotificationLibrary:Input(options)
     inputCorner.CornerRadius = CONFIG.CORNER_RADIUS
     inputCorner.Parent = inputContainer
 
+    local inputBoxHolder = Instance.new("Frame")
+    inputBoxHolder.Name = "InputBoxHolder"
+    inputBoxHolder.BackgroundTransparency = 1
+    inputBoxHolder.Size = UDim2.new(1, 0, 1, 0)
+    inputBoxHolder.Position = UDim2.new(0, 0, 0, 0)
+    inputBoxHolder.Parent = inputContainer
+
     local inputBox = Instance.new("TextBox")
     inputBox.Name = "InputBox"
     inputBox.BackgroundTransparency = 1
@@ -862,66 +869,94 @@ function NotificationLibrary:Input(options)
     inputBox.ClearTextOnFocus = false
     inputBox.MultiLine = false
     inputBox.TextWrapped = false
-    inputBox.Parent = inputContainer
+    inputBox.MaxVisibleGraphemes = -1  -- No limit on visible characters
+    inputBox.Parent = inputBoxHolder
 
     local actualValue = defaultValue
-    local isUpdatingText = false
     
     if inputType == "Password" then
+        local passwordValue = ""
         if defaultValue ~= "" then
+            passwordValue = defaultValue
             inputBox.Text = string.rep("•", #defaultValue)
         end
         
-        inputBox.Changed:Connect(function(property)
-            if property ~= "Text" or isUpdatingText then return end
-            
-            isUpdatingText = true
-            local currentText = inputBox.Text
-            local currentTextLen = #currentText
-            local actualValueLen = #actualValue
-            
-            if currentTextLen > actualValueLen then
-                local addedChars = string.sub(currentText, actualValueLen + 1)
-                if not string.find(addedChars, "•") then
-                    actualValue = actualValue .. addedChars
-                    inputBox.Text = string.rep("•", #actualValue)
-                end
-            elseif currentTextLen < actualValueLen then
-                actualValue = string.sub(actualValue, 1, currentTextLen)
-                inputBox.Text = string.rep("•", #actualValue)
-            end
-            
-            inputBox.CursorPosition = #inputBox.Text + 1
-            isUpdatingText = false
-        end)
-    end
-
-    if inputType == "Number" then
-        inputBox.Changed:Connect(function(property)
-            if property ~= "Text" or isUpdatingText then return end
-            
-            isUpdatingText = true
-            local newText = string.gsub(inputBox.Text, "[^%d%.]", "")
-            
-            local dotCount = 0
-            for i = 1, #newText do
-                if string.sub(newText, i, i) == "." then
-                    dotCount = dotCount + 1
-                    if dotCount > 1 then
-                        newText = string.sub(newText, 1, i-1) .. string.sub(newText, i+1)
-                        dotCount = dotCount - 1
+        inputBox.TextEditable = true
+        
+        local userInputService = game:GetService("UserInputService")
+        local textboxConnection
+        
+        textboxConnection = userInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard and inputBox:IsFocused() then
+                if input.KeyCode == Enum.KeyCode.Backspace then
+                    if #passwordValue > 0 then
+                        passwordValue = string.sub(passwordValue, 1, -2)
+                        inputBox.Text = string.rep("•", #passwordValue)
                     end
                 end
             end
+        end)
+        
+        inputBox.FocusLost:Connect(function()
+            if textboxConnection then
+                textboxConnection:Disconnect()
+            end
+        end)
+        
+        inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+            local currentText = inputBox.Text
+            local bulletsCount = select(2, string.gsub(currentText, "•", ""))
             
-            if newText ~= inputBox.Text then
-                local cursorPosition = inputBox.CursorPosition
-                inputBox.Text = newText
-                inputBox.CursorPosition = cursorPosition
+            if #currentText > bulletsCount then
+                local newChars = string.sub(currentText, bulletsCount + 1)
+                passwordValue = passwordValue .. newChars
             end
             
-            isUpdatingText = false
+            -- Delay to avoid conflicting with other property changes
+            task.defer(function()
+                inputBox.Text = string.rep("•", #passwordValue)
+            end)
         end)
+        
+        -- Update actual value when needed
+        actualValue = function()
+            return passwordValue
+        end
+    end
+
+    if inputType == "Number" then
+        local numberValue = defaultValue
+        
+        inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+            local newText = inputBox.Text
+            local filteredText = ""
+            
+            -- Only allow digits and one decimal point
+            local hasDecimal = false
+            for i = 1, #newText do
+                local char = string.sub(newText, i, i)
+                if (char >= "0" and char <= "9") then
+                    filteredText = filteredText .. char
+                elseif char == "." and not hasDecimal then
+                    filteredText = filteredText .. char
+                    hasDecimal = true
+                end
+            end
+            
+            if filteredText ~= newText then
+                -- Preserve cursor position
+                local cursorPos = inputBox.CursorPosition
+                inputBox.Text = filteredText
+                inputBox.CursorPosition = math.min(cursorPos, #filteredText + 1)
+            end
+            
+            numberValue = filteredText
+        end)
+        
+        -- Update actual value when needed
+        actualValue = function()
+            return tonumber(numberValue) or 0
+        end
     end
 
     local buttonContainer = Instance.new("Frame")
@@ -1031,12 +1066,8 @@ function NotificationLibrary:Input(options)
         local relY = mousePos.Y - buttonPos.Y
         self:CreateRippleEffect(confirmButton, relX, relY, Color3.fromRGB(255, 255, 255))
 
-        local value = (inputType == "Password") and actualValue or inputBox.Text
+        local value = type(actualValue) == "function" and actualValue() or inputBox.Text
         
-        if inputType == "Number" then
-            value = tonumber(value) or 0
-        end
-
         task.spawn(function()
             onConfirm(value)
         end)
@@ -1064,12 +1095,8 @@ function NotificationLibrary:Input(options)
 
     inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
-            local value = (inputType == "Password") and actualValue or inputBox.Text
+            local value = type(actualValue) == "function" and actualValue() or inputBox.Text
             
-            if inputType == "Number" then
-                value = tonumber(value) or 0
-            end
-
             task.spawn(function()
                 onConfirm(value)
             end)
