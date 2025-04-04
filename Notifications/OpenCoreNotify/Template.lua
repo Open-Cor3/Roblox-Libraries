@@ -6,6 +6,8 @@ Simple rules to work with
 (Password) Generally needs working on dont use it.
 (Type) There are 4 types which can be edited in the source code
   Info, Success, Warning, Error
+All Simple Notifications use Click to Close, this means when you click the notification
+it closes the instance sorta like the close button
 
 There are plenty of other functions I haven't and wont explain here as they are perhaps a bit to complicated for simple minded individuals
 and this is for the simpletons, here are the functions I have not explained
@@ -73,7 +75,7 @@ NotificationLibrary:Confirm({
     Text = "werm so whassssss", -- General Description
     Duration = 0, -- Duration 0 = No close
     YesText = "Cool", -- The text on the confirm button
-    NoText = "Dismiss" -- The text on the cancel button,
+    NoText = "Dismiss", -- The text on the cancel button,
     OnYes = function() -- Outcome of when they press Confirm
         print("User confirmed!")
     end,
@@ -87,5 +89,5 @@ NotificationLibrary:Notif(
   0, -- Duration
   "Success" -- Type
 )
--- Available on 1 line
--- NotificationLibrary:Notif("hallo hallo", "so erm what rthe fluppers!", 0, "Success")
+-- Available for 1 line of code
+NotificationLibrary:Notif("hallo hallo", "so erm what rthe fluppers! EXCEPT ERROR EDITIYON!!!", 0, "Error")
