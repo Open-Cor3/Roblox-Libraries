@@ -860,42 +860,37 @@ function NotificationLibrary:Input(options)
     inputBox.TextSize = 14
     inputBox.TextXAlignment = Enum.TextXAlignment.Left
     inputBox.ClearTextOnFocus = false
+    inputBox.MultiLine = false
+    inputBox.TextWrapped = false
+    inputBox.Parent = inputContainer
 
-    -- Store actual value for password fields
     local actualValue = defaultValue
     local isUpdatingText = false
     
     if inputType == "Password" then
         inputBox.TextScaled = false 
         
-        -- If there's a default value, mask it with bullets
         if defaultValue ~= "" then
             inputBox.Text = string.rep("•", #defaultValue)
         end
 
         inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-            -- Avoid infinite recursion with our own text updates
             if isUpdatingText then return end
             
             local currentText = inputBox.Text
             local currentTextLen = #currentText
             local actualValueLen = #actualValue
             
-            -- Detect what kind of change happened
             if currentTextLen > actualValueLen then
-                -- Character(s) added
                 local addedChars = string.sub(currentText, actualValueLen + 1)
                 
-                -- Check if the added character is not a bullet (so it's a real user input)
                 if not string.find(addedChars, "•") then
                     actualValue = actualValue .. addedChars
                 end
             elseif currentTextLen < actualValueLen then
-                -- Character(s) removed - adjust the actual value to match
                 actualValue = string.sub(actualValue, 1, currentTextLen)
             end
             
-            -- Update the display with bullets
             isUpdatingText = true
             inputBox.Text = string.rep("•", #actualValue)
             inputBox.CursorPosition = #inputBox.Text + 1
@@ -930,8 +925,6 @@ function NotificationLibrary:Input(options)
             isUpdatingText = false
         end)
     end
-
-    inputBox.Parent = inputContainer
 
     local buttonContainer = Instance.new("Frame")
     buttonContainer.Name = "ButtonContainer"
@@ -978,11 +971,10 @@ function NotificationLibrary:Input(options)
 
     local function setupButtonEffects(button, color)
         button.MouseEnter:Connect(function()
-            local hoverTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
                 Size = UDim2.new(0.48, 0, 1, -4),
                 Position = UDim2.new(button.Position.X.Scale, 0, 0, -2)
-            })
-            hoverTween:Play()
+            }):Play()
 
             TweenService:Create(button, TweenInfo.new(0.2), {
                 BackgroundColor3 = Color3.fromRGB(
@@ -994,11 +986,10 @@ function NotificationLibrary:Input(options)
         end)
 
         button.MouseLeave:Connect(function()
-            local resetTween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+            TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
                 Size = UDim2.new(0.48, 0, 1, 0),
                 Position = UDim2.new(button.Position.X.Scale, 0, 0, 0)
-            })
-            resetTween:Play()
+            }):Play()
 
             TweenService:Create(button, TweenInfo.new(0.2), {
                 BackgroundColor3 = color
@@ -1006,11 +997,10 @@ function NotificationLibrary:Input(options)
         end)
 
         button.MouseButton1Down:Connect(function()
-            local clickTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
                 Size = UDim2.new(0.48, 0, 1, -6),
                 Position = UDim2.new(button.Position.X.Scale, 0, 0, 3)
-            })
-            clickTween:Play()
+            }):Play()
 
             TweenService:Create(button, TweenInfo.new(0.1), {
                 BackgroundColor3 = Color3.fromRGB(
@@ -1022,11 +1012,10 @@ function NotificationLibrary:Input(options)
         end)
 
         button.MouseButton1Up:Connect(function()
-            local releaseTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
                 Size = UDim2.new(0.48, 0, 1, -4),
                 Position = UDim2.new(button.Position.X.Scale, 0, 0, -2)
-            })
-            releaseTween:Play()
+            }):Play()
 
             TweenService:Create(button, TweenInfo.new(0.1), {
                 BackgroundColor3 = color
@@ -1044,7 +1033,6 @@ function NotificationLibrary:Input(options)
         local relY = mousePos.Y - buttonPos.Y
         self:CreateRippleEffect(confirmButton, relX, relY, Color3.fromRGB(255, 255, 255))
 
-        -- Return the actual value for password fields, otherwise use the visible text
         local value = (inputType == "Password") and actualValue or inputBox.Text
         
         if inputType == "Number" then
@@ -1070,7 +1058,7 @@ function NotificationLibrary:Input(options)
         notification.Close()
     end)
 
-    task.delay(0.5, function()
+    task.delay(0.1, function()
         if inputBox and inputBox.Parent then
             inputBox:CaptureFocus()
         end
@@ -1078,7 +1066,6 @@ function NotificationLibrary:Input(options)
 
     inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
-            -- Return the actual value for password fields, otherwise use the visible text
             local value = (inputType == "Password") and actualValue or inputBox.Text
             
             if inputType == "Number" then
