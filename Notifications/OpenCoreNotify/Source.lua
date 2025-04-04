@@ -861,23 +861,52 @@ function NotificationLibrary:Input(options)
     inputBox.TextXAlignment = Enum.TextXAlignment.Left
     inputBox.ClearTextOnFocus = false
 
+    -- Store actual value for password fields
+    local actualValue = defaultValue
+    local isUpdatingText = false
+    
     if inputType == "Password" then
         inputBox.TextScaled = false 
+        
+        -- If there's a default value, mask it with bullets
+        if defaultValue ~= "" then
+            inputBox.Text = string.rep("•", #defaultValue)
+        end
 
         inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-            if inputBox.Text ~= "" then
-                local visibleText = string.rep("•", #inputBox.Text)
-                if visibleText ~= inputBox.Text then
-                    local cursorPosition = inputBox.CursorPosition
-                    inputBox.Text = visibleText
-                    inputBox.CursorPosition = cursorPosition
+            -- Avoid infinite recursion with our own text updates
+            if isUpdatingText then return end
+            
+            local currentText = inputBox.Text
+            local currentTextLen = #currentText
+            local actualValueLen = #actualValue
+            
+            -- Detect what kind of change happened
+            if currentTextLen > actualValueLen then
+                -- Character(s) added
+                local addedChars = string.sub(currentText, actualValueLen + 1)
+                
+                -- Check if the added character is not a bullet (so it's a real user input)
+                if not string.find(addedChars, "•") then
+                    actualValue = actualValue .. addedChars
                 end
+            elseif currentTextLen < actualValueLen then
+                -- Character(s) removed - adjust the actual value to match
+                actualValue = string.sub(actualValue, 1, currentTextLen)
             end
+            
+            -- Update the display with bullets
+            isUpdatingText = true
+            inputBox.Text = string.rep("•", #actualValue)
+            inputBox.CursorPosition = #inputBox.Text + 1
+            isUpdatingText = false
         end)
     end
 
     if inputType == "Number" then
         inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+            if isUpdatingText then return end
+            isUpdatingText = true
 
             local newText = string.gsub(inputBox.Text, "[^%d%.]", "")
 
@@ -897,6 +926,8 @@ function NotificationLibrary:Input(options)
                 inputBox.Text = newText
                 inputBox.CursorPosition = cursorPosition
             end
+            
+            isUpdatingText = false
         end)
     end
 
@@ -1007,14 +1038,15 @@ function NotificationLibrary:Input(options)
     setupButtonEffects(cancelButton, Color3.fromRGB(100, 100, 100))
 
     confirmButton.MouseButton1Click:Connect(function()
-
         local mousePos = game:GetService("UserInputService"):GetMouseLocation()
         local buttonPos = confirmButton.AbsolutePosition
         local relX = mousePos.X - buttonPos.X
         local relY = mousePos.Y - buttonPos.Y
         self:CreateRippleEffect(confirmButton, relX, relY, Color3.fromRGB(255, 255, 255))
 
-        local value = inputBox.Text
+        -- Return the actual value for password fields, otherwise use the visible text
+        local value = (inputType == "Password") and actualValue or inputBox.Text
+        
         if inputType == "Number" then
             value = tonumber(value) or 0
         end
@@ -1027,7 +1059,6 @@ function NotificationLibrary:Input(options)
     end)
 
     cancelButton.MouseButton1Click:Connect(function()
-
         local mousePos = game:GetService("UserInputService"):GetMouseLocation()
         local buttonPos = cancelButton.AbsolutePosition
         local relX = mousePos.X - buttonPos.X
@@ -1047,8 +1078,9 @@ function NotificationLibrary:Input(options)
 
     inputBox.FocusLost:Connect(function(enterPressed)
         if enterPressed then
-
-            local value = inputBox.Text
+            -- Return the actual value for password fields, otherwise use the visible text
+            local value = (inputType == "Password") and actualValue or inputBox.Text
+            
             if inputType == "Number" then
                 value = tonumber(value) or 0
             end
