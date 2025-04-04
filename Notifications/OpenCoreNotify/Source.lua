@@ -868,43 +868,41 @@ function NotificationLibrary:Input(options)
     local isUpdatingText = false
     
     if inputType == "Password" then
-        inputBox.TextScaled = false 
-        
         if defaultValue ~= "" then
             inputBox.Text = string.rep("•", #defaultValue)
         end
-
-        inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-            if isUpdatingText then return end
+        
+        inputBox.Changed:Connect(function(property)
+            if property ~= "Text" or isUpdatingText then return end
             
+            isUpdatingText = true
             local currentText = inputBox.Text
             local currentTextLen = #currentText
             local actualValueLen = #actualValue
             
             if currentTextLen > actualValueLen then
                 local addedChars = string.sub(currentText, actualValueLen + 1)
-                
                 if not string.find(addedChars, "•") then
                     actualValue = actualValue .. addedChars
+                    inputBox.Text = string.rep("•", #actualValue)
                 end
             elseif currentTextLen < actualValueLen then
                 actualValue = string.sub(actualValue, 1, currentTextLen)
+                inputBox.Text = string.rep("•", #actualValue)
             end
             
-            isUpdatingText = true
-            inputBox.Text = string.rep("•", #actualValue)
             inputBox.CursorPosition = #inputBox.Text + 1
             isUpdatingText = false
         end)
     end
 
     if inputType == "Number" then
-        inputBox:GetPropertyChangedSignal("Text"):Connect(function()
-            if isUpdatingText then return end
+        inputBox.Changed:Connect(function(property)
+            if property ~= "Text" or isUpdatingText then return end
+            
             isUpdatingText = true
-
             local newText = string.gsub(inputBox.Text, "[^%d%.]", "")
-
+            
             local dotCount = 0
             for i = 1, #newText do
                 if string.sub(newText, i, i) == "." then
@@ -915,7 +913,7 @@ function NotificationLibrary:Input(options)
                     end
                 end
             end
-
+            
             if newText ~= inputBox.Text then
                 local cursorPosition = inputBox.CursorPosition
                 inputBox.Text = newText
